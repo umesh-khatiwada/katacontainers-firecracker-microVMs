@@ -97,6 +97,11 @@ rm -f /tmp/firecracker.socket /tmp/firecracker.log
   --level Info
 ```
 
+firecracker \
+  --api-sock /tmp/firecracker.socket \
+  --log-path /tmp/firecracker.log \
+  --level Info
+
 Keep this terminal open.
 
 ## 5. Boot the microVM
