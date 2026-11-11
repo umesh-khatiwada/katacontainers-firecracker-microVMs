@@ -1,0 +1,14 @@
+# gVisor override for docker-compose.cloudamqp.yml (Linux + runsc only).
+#
+#   docker compose -f docker-compose.cloudamqp.yml -f docker-compose.cloudamqp.gvisor.yml up --build -d --scale worker=20
+#
+# Why more than `runtime: runsc`:
+# gVisor runs its own network stack, so Docker's built-in DNS (127.0.0.11) is unreachable
+# inside the sandbox and the CloudAMQP hostname won't resolve on the compose network.
+# Workers only talk to CloudAMQP and the shared volume, so they can sit on Docker's
+# default bridge network, which hands them the host's real DNS servers instead.
+
+services:
+  worker:
+    runtime: runsc
+    network_mode: bridge

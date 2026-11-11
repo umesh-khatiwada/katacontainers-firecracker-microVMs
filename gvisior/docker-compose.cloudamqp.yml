@@ -1,0 +1,33 @@
+# End-to-end test against managed CloudAMQP (no local RabbitMQ).
+# RABBITMQ_URL comes from .env (git-ignored). PDFs land on a shared volume.
+#
+#   docker compose -f docker-compose.cloudamqp.yml up --build -d --scale worker=20
+#   N=200 python scripts/load_test.py
+#
+# To sandbox the 20 workers with gVisor (LINUX + runsc only), add the override file:
+#   docker compose -f docker-compose.cloudamqp.yml -f docker-compose.cloudamqp.gvisor.yml up --build -d --scale worker=20
+
+services:
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    environment:
+      RABBITMQ_URL: "${RABBITMQ_URL}"
+      PDF_QUEUE: "pdf_jobs"
+      STORAGE_DIR: "/data"
+    volumes:
+      - pdf_data:/data
+
+  worker:
+    build: ./worker
+    # gVisor sandbox (Linux + runsc only): use docker-compose.cloudamqp.gvisor.yml (see top of file).
+    environment:
+      RABBITMQ_URL: "${RABBITMQ_URL}"
+      PDF_QUEUE: "pdf_jobs"
+      STORAGE_DIR: "/data"
+    volumes:
+      - pdf_data:/data
+
+volumes:
+  pdf_data:

@@ -1,0 +1,25 @@
+# gVisor override for docker-compose.yml (Linux + runsc only).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gvisor.yml up --build -d --scale worker=10
+#
+# Why more than `runtime: runsc`:
+# gVisor runs its own network stack, so Docker's built-in DNS (127.0.0.11, wired up
+# with iptables) is unreachable inside the sandbox and the hostname "rabbitmq" won't
+# resolve. So RabbitMQ gets a fixed IP and the workers get it via /etc/hosts.
+
+services:
+  rabbitmq:
+    networks:
+      default:
+        ipv4_address: 172.28.0.10
+
+  worker:
+    runtime: runsc
+    extra_hosts:
+      - "rabbitmq:172.28.0.10"
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

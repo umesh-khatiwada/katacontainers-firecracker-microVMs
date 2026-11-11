@@ -1,0 +1,54 @@
+# Fully self-contained stack (local RabbitMQ): learn without any cloud account.
+#
+#   docker compose up --build -d --scale worker=10
+#   N=100 python3 scripts/load_test.py
+#
+# PDFs are written to a shared volume (pdf_data) by workers and served by the API.
+# For the managed-broker test, use docker-compose.cloudamqp.yml instead.
+#
+# To sandbox workers with gVisor (LINUX + runsc only), add the override file:
+#   docker compose -f docker-compose.yml -f docker-compose.gvisor.yml up --build -d --scale worker=10
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI: http://localhost:15672  (guest / guest)
+    healthcheck:
+      # `ping` goes green ~5s before the AMQP port accepts connections, so the API
+      # would start early and return 500s. Check the listener itself instead.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"     # http://localhost:8000/docs
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      PDF_QUEUE: "pdf_jobs"
+      STORAGE_DIR: "/data"
+    volumes:
+      - pdf_data:/data
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  worker:
+    build: ./worker
+    # gVisor sandbox (Linux + runsc only): use docker-compose.gvisor.yml (see top of file).
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      PDF_QUEUE: "pdf_jobs"
+      STORAGE_DIR: "/data"
+    volumes:
+      - pdf_data:/data
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  pdf_data:
